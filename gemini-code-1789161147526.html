@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Drive - Google Drive</title>
+  <link rel="icon" href="https://ssl.gstatic.com/images/branding/product/1x/drive_2020q4_32dp.png">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+
+    :root {
+      --bg: #050505;
+      --bg-panel: rgba(15, 15, 20, 0.85);
+      --accent: #8a2be2; 
+      --accent-glow: rgba(138, 43, 226, 0.5);
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #e0e0e0;
+      --text-muted: #888;
+    }
+    
+    body, html {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      color: var(--text); font-family: 'Inter', sans-serif;
+      overflow: hidden; background-color: var(--bg);
+    }
+
+    .bg-mesh {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: 
+        radial-gradient(circle at 15% 50%, rgba(138, 43, 226, 0.08), transparent 25%),
+        radial-gradient(circle at 85% 30%, rgba(0, 242, 254, 0.05), transparent 25%);
+      z-index: -1;
+    }
+
+    .sidebar {
+      position: absolute; top: 0; left: -350px; 
+      width: 320px; height: 100%;
+      background: var(--bg-panel); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-right: 1px solid var(--border);
+      padding: 30px 20px; transition: left 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 1000; display: flex; flex-direction: column; box-sizing: border-box; 
+      box-shadow: 20px 0 50px rgba(0,0,0,0.5);
+    }
+
+    .sidebar.open { left: 0; }
+    
+    /* Enabled thin styling for scrollbar so it looks clean */
+    .games-grid::-webkit-scrollbar { width: 4px; }
+    .games-grid::-webkit-scrollbar-track { background: transparent; }
+    .games-grid::-webkit-scrollbar-thumb { background: rgba(138, 43, 226, 0.3); border-radius: 4px; }
+
+    .sidebar-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 15px;
+    }
+
+    .sidebar h1 {
+      margin: 0; font-size: 1.2em; font-weight: 700; letter-spacing: 2px;
+      text-transform: uppercase; color: #fff;
+      text-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .close-btn {
+      background: transparent; border: none; color: var(--text-muted);
+      font-size: 24px; cursor: pointer; transition: color 0.2s;
+    }
+    .close-btn:hover { color: #fff; }
+
+    .games-grid {
+      display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding-right: 10px;
+      padding-bottom: 100px;
+    }
+
+    .game-card {
+      background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border);
+      border-radius: 8px; padding: 12px 15px;
+      cursor: pointer; display: flex; align-items: center; gap: 15px;
+      transition: all 0.2s ease; flex-shrink: 0;
+    }
+
+    .game-card:hover {
+      background: rgba(138, 43, 226, 0.1); border-color: var(--accent);
+      box-shadow: 0 0 15px var(--accent-glow); transform: translateX(5px);
+    }
+
+    .game-icon { font-size: 22px; filter: drop-shadow(0 0 5px rgba(255,255,255,0.2)); width: 30px; text-align: center; }
+    .game-info h3 { margin: 0; font-size: 0.95em; font-weight: 500; color: #fff; }
+    .game-info p { margin: 3px 0 0 0; font-size: 0.7em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+
+    .toolbar {
+      position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+      z-index: 500; display: flex; gap: 10px;
+      background: var(--bg-panel); padding: 10px; border-radius: 12px;
+      border: 1px solid var(--border); backdrop-filter: blur(10px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    .btn {
+      background: transparent; color: var(--text);
+      border: 1px solid transparent; padding: 8px 16px; border-radius: 8px;
+      cursor: pointer; font-weight: 500; font-family: inherit; font-size: 0.85em;
+      transition: all 0.2s ease; display: flex; align-items: center; gap: 6px;
+    }
+
+    .btn:hover { background: rgba(255,255,255,0.05); border-color: var(--border); }
+    .btn.active { color: var(--accent); text-shadow: 0 0 8px var(--accent-glow); }
+
+    .btn-stealth { background: rgba(138, 43, 226, 0.15); border-color: var(--accent); color: #fff; }
+    .btn-stealth:hover { background: var(--accent); box-shadow: 0 0 15px var(--accent-glow); }
+    
+    .btn-warning { background: rgba(255, 69, 0, 0.15); border-color: orangered; color: #fff; }
+    .btn-warning:hover { background: orangered; box-shadow: 0 0 15px rgba(255,69,0,0.5); }
+
+    .main-content { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+    .game-frame { width: 100%; height: 100%; border: none; background-color: var(--bg); }
+
+    #toast {
+      position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+      background: var(--accent); color: white; padding: 10px 20px; border-radius: 8px;
+      font-size: 0.85em; font-weight: bold; box-shadow: 0 5px 15px var(--accent-glow);
+      opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 9999;
+    }
+  </style>
+</head>
+<body oncontextmenu="return false;">
+
+  <div class="bg-mesh"></div>
+  <div id="toast">Panic Key (`) is active.</div>
+
+  <div class="toolbar">
+    <button class="btn active" onclick="toggleMenu()">
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+      Library
+    </button>
+    <button class="btn" id="server-badge" onclick="switchServer()">
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2v20M17 5l5 5-5 5M7 19l-5-5 5-5" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+      Node: 1
+    </button>
+    <button class="btn btn-warning" onclick="forceLaunch()">
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
+      Force Launch
+    </button>
+    <button class="btn btn-stealth" onclick="launchGhostMode()">
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+      Hide Site
+    </button>
+  </div>
+
+  <div class="sidebar open" id="sidebar">
+    <div class="sidebar-header">
+      <h1>Ghostlink</h1>
+      <button class="close-btn" onclick="toggleMenu()">×</button>
+    </div>
+    
+    <div class="games-grid">
+      <!-- Classics & Action -->
+      <div class="game-card" onclick="loadGame('minecraft')">
+        <div class="game-icon">✦</div>
+        <div class="game-info"><h3>Eaglercraft 1.8</h3><p>Verified Secure</p></div>
+      </div>
+      <div class="game-card" onclick="loadGame('run3')">
+        <div class="game-icon">👽</div>
+        <div class="game-info"><h3>Run 3</h3><p>Space Platformer</p></div>
+      </div>
+      <div class="game-card" onclick="loadGame('geometrydash')">
+        <div class="game-icon">🟩</div>
+        <div class="game-info"><h3>Geometry Dash</h3><p>Rhythm Platformer</p></div>
+      </div>
+      <div class="game-card" onclick="loadGame('smashkarts')">
+        <div class="game-icon">🏎️</div>
+        <div class="game-info"><h3>Smash Karts</h3><p>Multiplayer Battle</p></div>
+      </div>
+      <div class="game-card" onclick="loadGame('shellshockers')">
+        <div class="game-icon">🥚</div>
+        <div class="game-info"><h3>Shell Shockers</h3><p>Egg FPS Shooter</p></div>
+      </div>
+      <div class="game-card" onclick="loadGame('1v1')">
+        <div class="game-icon">🔫</div>
+        <div class="game-info"><h3>1v1.LOL</h3><p>Battle Royale</p></div>
+      </div>
+      
+      <!-- Horror & Tycoon -->
+      <div class="game-card" onclick="loadGame('granny')">
+        <div class="game-icon">⚰️</div>
+        <div class="game-info"><h3>Granny</h3><p>Horror Engine</p></div>
+      </div>
+      <div class="game-card" onclick="loadGame('fnaf')">
+        <div class="game-icon">🐻</div>
+        <div class="game-info"><h3>FNAF</h3><p>Survival Horror</p></div>
+      </div>
+      <div class="game-card" onclick="loadGame('monkeymart')">
+        <div class="game-icon">🐒</div>
+        <div class="game-info"><h3>Monkey Mart</h3><p>Tycoon</p></div>
+      </div>
+      <div class="game-card" onclick="loadGame('bitlife')">
+        <div class="game-icon">🧬</div>
+        <div class="game-info"><h3>BitLife</h3><p>Simulation</p></div>
+      </div>
+
+      <!-- Arcade & Sports -->
+      <div class="game-card" onclick="loadGame('slope')">
+        <div class="game-icon">⏣</div>
+        <div class="game-info"><h3>Slope</h3><p>WebGL Physics</p></div>
+      </div>
+      <div class="game-card" onclick="loadGame('motox3m')">
+        <div class="game-icon">🏍️</div>
+        <div class="game-info"><h3>Moto X3M</h3><p>Stunt Racing</p></div>
+      </div>
+      <div class="game-card" onclick="loadGame('tunnelrush')">
+        <div class="game-icon">🌀</div>
+        <div class="game-info"><h3>Tunnel Rush</h3><p>Fast-Paced Avoidance</p></div>
+      </div>
+      <div class="game-card" onclick="loadGame('retrobowl')">
+        <div class="game-icon">🏈</div>
+        <div class="game-info"><h3>Retro Bowl</h3><p>Sports Emulation</p></div>
+      </div>
+      <div class="game-card" onclick="loadGame('subway')">
+        <div class="game-icon">🛹</div>
+        <div class="game-info"><h3>Subway Surfers</h3><p>Endless Runner</p></div>
+      </div>
+      <div class="game-card" onclick="loadGame('flappy')">
+        <div class="game-icon">🐦</div>
+        <div class="game-info"><h3>Flappy Bird</h3><p>Arcade Classic</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <iframe id="gameIframe" class="game-frame" src="" allow="fullscreen; pointer-lock; keyboard-map" allowfullscreen loading="lazy"></iframe>
+  </div>
+
+  <script>
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '`') {
+        window.location.replace('https://classroom.google.com');
+      }
+    });
+
+    window.onload = () => {
+      const toast = document.getElementById('toast');
+      toast.style.opacity = '1';
+      setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+      loadGame('minecraft'); // Load initial game
+    };
+
+    function launchGhostMode() {
+      let ghostWindow = window.open('about:blank', '_blank');
+      if (ghostWindow) {
+        let html = document.documentElement.outerHTML;
+        ghostWindow.document.open();
+        ghostWindow.document.write(html);
+        ghostWindow.document.close();
+        window.location.replace('https://classroom.google.com');
+      } else {
+        alert("Allow popups in your browser to use Ghost Mode!");
+      }
+    }
+
+    const sidebar = document.getElementById('sidebar');
+    const iframe = document.getElementById('gameIframe');
+    const serverBadge = document.getElementById('server-badge');
+
+    // Massive expanded database with 3 Nodes per game
+    const gameDatabase = {
+      'minecraft': [
+        'https://minecraft-unblocked6x.github.io/',
+        'https://math-connect.github.io/eaglercraft/',
+        'https://tbg95.github.io/eaglercraftx/'
+      ],
+      'run3': [
+        'https://run3.github.io/',
+        'https://run-3unblocked.github.io/',
+        'https://tbg95.github.io/run-3/'
+      ],
+      'geometrydash': [
+        'https://geometry-dash-unblocked.github.io/',
+        'https://geometrydash.io/',
+        'https://tbg95.github.io/geometry-dash/'
+      ],
+      'smashkarts': [
+        'https://smashkarts.io/',
+        'https://smash-karts.github.io/',
+        'https://ubg98.github.io/SmashKarts/'
+      ],
+      'shellshockers': [
+        'https://shellshock.io/',
+        'https://szvy.github.io/szvy-central/shell-shockers/',
+        'https://tbg95.github.io/shell-shockers/'
+      ],
+      'motox3m': [
+        'https://moto-x3m.github.io/',
+        'https://ubg-96.github.io/game/moto-x3m.html',
+        'https://tbg95.github.io/moto-x3m/'
+      ],
+      'tunnelrush': [
+        'https://tunnel-rush.github.io/',
+        'https://math-connect.github.io/tunnel-rush/',
+        'https://tbg95.github.io/tunnel-rush/'
+      ],
+      'granny': [
+        'https://grannyunblockedonline.github.io/',
+        'https://granny1game.github.io/',
+        'https://szvy.github.io/szvy-central/granny/'
+      ],
+      'fnaf': [
+        'https://ubg-96.github.io/game/five-nights-at-freddys.html',
+        'https://szvy.github.io/szvy-central/fnaf/',
+        'https://math-connect.github.io/fnaf/'
+      ],
+      'monkeymart': [
+        'https://monkey-marts.github.io/',
+        'https://monkeymart3.github.io/',
+        'https://szvy.github.io/szvy-central/monkey-mart/'
+      ],
+      '1v1': [
+        'https://1v1lols-unblocked.github.io/',
+        'https://ubg-96.github.io/game/1v1-lol.html',
+        'https://1v1lol-unblocked76.github.io/'
+      ],
+      'bitlife': [
+        'https://fafgamess.github.io/bitlife/',
+        'https://sz-games.github.io/Bitlife',
+        'https://math-connect.github.io/bitlife/'
+      ],
+      'slope': [
+        'https://slopecom.github.io/',
+        'https://slope-game.github.io/',
+        'https://ubg-96.github.io/game/slope.html'
+      ],
+      'retrobowl': [
+        'https://retrobowl-76.github.io/',
+        'https://math-connect.github.io/retro-bowl/',
+        'https://ubg-96.github.io/game/retro-bowl.html'
+      ],
+      'subway': [
+        'https://subwaysurfers-2.github.io/',
+        'https://subwaysurfers76.github.io/',
+        'https://math-connect.github.io/subway-surfers/'
+      ],
+      'flappy': [
+        'https://math-connect.github.io/flappy-bird/',
+        'https://flappybird.io/',
+        'https://ubg-96.github.io/game/flappy-bird.html'
+      ]
+    };
+
+    let currentGame = 'minecraft';
+    let currentServerIndex = 0;
+
+    function toggleMenu() {
+      sidebar.classList.toggle('open');
+      if (!sidebar.classList.contains('open')) {
+        setTimeout(() => iframe.focus(), 300);
+      }
+    }
+
+    function loadGame(gameId) {
+      currentGame = gameId;
+      currentServerIndex = 0; 
+      serverBadge.innerHTML = `<svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2v20M17 5l5 5-5 5M7 19l-5-5 5-5" stroke="currentColor" stroke-width="2" fill="none"/></svg> Node: 1`;
+      iframe.src = gameDatabase[gameId][currentServerIndex];
+      sidebar.classList.remove('open'); // Auto close menu
+    }
+
+    function switchServer() {
+      const servers = gameDatabase[currentGame];
+      currentServerIndex = (currentServerIndex + 1) % servers.length;
+      serverBadge.innerHTML = `<svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2v20M17 5l5 5-5 5M7 19l-5-5 5-5" stroke="currentColor" stroke-width="2" fill="none"/></svg> Node: ${currentServerIndex + 1}`;
+      serverBadge.classList.add('active');
+      setTimeout(() => serverBadge.classList.remove('active'), 500);
+      iframe.src = servers[currentServerIndex];
+    }
+
+    // Force Launch script for blocking evasion
+    function forceLaunch() {
+      const currentUrl = gameDatabase[currentGame][currentServerIndex];
+      let win = window.open('about:blank', '_blank');
+      if (win) {
+        win.document.write(`<iframe src="${currentUrl}" style="border:none; width:100vw; height:100vh; margin:0; padding:0; position:absolute; top:0; left:0;" allowfullscreen></iframe>`);
+        win.document.title = "Google Docs"; 
+        win.document.close();
+      } else {
+        alert("Pop-ups must be allowed to use Force Launch.");
+      }
+    }
+  </script>
+</body>
+</html>
